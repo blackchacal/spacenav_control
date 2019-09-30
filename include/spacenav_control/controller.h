@@ -62,7 +62,7 @@ private:
   void publishNewJointState(int joint, float value, float duration = 5.0);
 
 public:
-  Controller(ros::NodeHandle nh, std::string joint_names_str, std::string controller_topic);
+  Controller(ros::NodeHandle nh, std::string joint_names_str, std::string controller_topic, Sensitivity sensitivity);
   void getSpacenavDataCallback(const sensor_msgs::Joy::ConstPtr &msg);
 };
 }  // namespace spacenav

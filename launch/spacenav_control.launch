@@ -1,6 +1,12 @@
 <launch>
+  <!-- 
+    Space mouse sensitivity: How quickly the robot will move during Position Relative mode.
+    Accepted values: 0 = Low, 1 = Medium, 2 = High 
+   -->
+  <arg name="sensitivity" default="1"/>
+
   <node name="spacenav" pkg="spacenav_node" type="spacenav_node"/>
-  <node name="spacenav_control" pkg="spacenav_control" type="spacenav_control_node" output="screen">
+  <node name="spacenav_control" pkg="spacenav_control" type="spacenav_control_node" args="-s $(arg sensitivity)" output="screen" respawn="true">
     <param name="controller_topic" type="str" value="/panda_arm_controller/command" />
     <param name="joint_names" type="str" value="panda_joint1,panda_joint2,panda_joint3,panda_joint4,panda_joint5,panda_joint6,panda_joint7" />
   </node>

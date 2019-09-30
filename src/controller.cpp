@@ -2,7 +2,8 @@
 
 using namespace spacenav;
 
-Controller::Controller(ros::NodeHandle nh, std::string joint_names_str, std::string controller_topic)
+Controller::Controller(ros::NodeHandle nh, std::string joint_names_str, std::string controller_topic,
+                       Sensitivity sensitivity)
 {
   // Set initial mode to Nav3D
   mode = Modes::Nav3D;
@@ -21,7 +22,19 @@ Controller::Controller(ros::NodeHandle nh, std::string joint_names_str, std::str
     joint_position_pub = nh.advertise<trajectory_msgs::JointTrajectory>(controller_topic, 10);
 
     // Set default values
-    sensitivity = MEDIUM_SENSITIVITY;
+    switch (sensitivity)
+    {
+      case Sensitivity::Low:
+        this->sensitivity = LOW_SENSITIVITY;
+        break;
+      case Sensitivity::High:
+        this->sensitivity = HIGH_SENSITIVITY;
+        break;
+      default:
+        this->sensitivity = MEDIUM_SENSITIVITY;
+        break;
+    }
+
     selected_joint = 0;
     joint_angle_deg = 0;
     joint_angle_rad = 0;
