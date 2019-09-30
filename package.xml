@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>spacenav_control</name>
+  <version>1.0.0</version>
+  <description>ROS package to control robot manipulators joints and/or end-effector using 3Dconnexion space mouse.</description>
+
+  <maintainer email="ribeiro.tonet@gmail.com">Ricardo Tonet</maintainer>
+  <author email="ribeiro.tonet@gmail.com">Ricardo Tonet</author>
+
+  <license>BSD 3-Clause License</license>
+  <url type="repository">https://github.com/blackchacal/spacenav_control</url>
+
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>trajectory_msgs</build_depend>
+  <build_depend>spacenav_node</build_depend>
+  <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  <build_export_depend>trajectory_msgs</build_export_depend>
+  <build_export_depend>spacenav_node</build_export_depend>
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>trajectory_msgs</exec_depend>
+  <exec_depend>spacenav_node</exec_depend>
+</package>
