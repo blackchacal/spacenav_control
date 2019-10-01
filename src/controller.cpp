@@ -26,12 +26,15 @@ Controller::Controller(ros::NodeHandle nh, std::string joint_names_str, std::str
     {
       case Sensitivity::Low:
         this->sensitivity = LOW_SENSITIVITY;
+        ROS_INFO("SPACENAV_CONTROL: Sensitivity set to LOW.");
         break;
       case Sensitivity::High:
         this->sensitivity = HIGH_SENSITIVITY;
+        ROS_INFO("SPACENAV_CONTROL: Sensitivity set to HIGH.");
         break;
       default:
         this->sensitivity = MEDIUM_SENSITIVITY;
+        ROS_INFO("SPACENAV_CONTROL: Sensitivity set to MEDIUM.");
         break;
     }
 
