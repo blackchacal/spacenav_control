@@ -7,6 +7,7 @@
 #include <string.h>
 #include <trajectory_msgs/JointTrajectory.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
+#include <urdf/model.h>
 #include <boost/algorithm/string.hpp>  // Must be installed on linux distro
 
 namespace spacenav
@@ -35,6 +36,8 @@ private:
 
   // Vars
   Modes mode;
+  std::string robot_name;
+  std::map<std::string, urdf::JointSharedPtr> robot_joints;
   std::vector<std::string> joint_names;
   ros::Publisher joint_position_pub;
   int total_joints;
@@ -62,7 +65,8 @@ private:
   void publishNewJointState(int joint, float value, float duration = 5.0);
 
 public:
-  Controller(ros::NodeHandle nh, std::string joint_names_str, std::string controller_topic, Sensitivity sensitivity);
+  Controller(ros::NodeHandle nh, std::string robot_name, std::map<std::string, urdf::JointSharedPtr> robot_joints,
+             std::string controller_topic, Sensitivity sensitivity);
   void getSpacenavDataCallback(const sensor_msgs::Joy::ConstPtr &msg);
 };
 }  // namespace spacenav

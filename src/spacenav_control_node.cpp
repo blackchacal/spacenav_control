@@ -2,12 +2,15 @@
 #include <spacenav_control/controller.h>
 #include <stdlib.h>
 #include <string.h>
+#include <urdf/model.h>
 
 const std::string spacenav_topic = "/spacenav/joy";
-const std::string joint_names_param = "/spacenav_control/joint_names";
 const std::string controller_topic_param = "/spacenav_control/controller_topic";
+const std::string robot_description_param = "/robot_description";
 
-std::string joint_names_str, controller_topic;
+std::string controller_topic, robot_description;
+std::string robot_name;
+std::map<std::string, urdf::JointSharedPtr> robot_joints;
 
 int main(int argc, char **argv)
 {
@@ -30,17 +33,19 @@ int main(int argc, char **argv)
     }
   }
 
-  if (nh.hasParam(joint_names_param) && nh.hasParam(controller_topic_param))
+  if (nh.hasParam(robot_description_param) && nh.hasParam(controller_topic_param))
   {
-    nh.getParam(joint_names_param, joint_names_str);
     nh.getParam(controller_topic_param, controller_topic);
+
+    urdf::Model model;
+    if (model.initParam(robot_description_param))
+    {
+      robot_name = model.getName();
+      robot_joints = model.joints_;
+    }
   }
-  else
-  {
-    joint_names_str = "";
-    controller_topic = "";
-  }
-  spacenav::Controller spnav(nh, joint_names_str, controller_topic, sensitivity);
+
+  spacenav::Controller spnav(nh, robot_name, robot_joints, controller_topic, sensitivity);
 
   // Subscribe to /spacenav/joy topic which is published by spacenav_node
   // with spacenav's six degrees of freedom and buttons
