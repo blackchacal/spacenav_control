@@ -26,6 +26,19 @@ enum class Sensitivity
   High = 2
 };
 
+enum class JoyStates
+{
+  X_NEGATIVE = 0,
+  X_ZERO = 1,
+  X_POSITIVE = 2,
+  Y_NEGATIVE = 3,
+  Y_ZERO = 4,
+  Y_POSITIVE = 5,
+  Z_NEGATIVE = 6,
+  Z_ZERO = 7,
+  Z_POSITIVE = 8
+};
+
 class Controller
 {
 private:
@@ -33,6 +46,7 @@ private:
   const float LOW_SENSITIVITY = 0.01;
   const float MEDIUM_SENSITIVITY = 0.1;
   const float HIGH_SENSITIVITY = 1;
+  const int JOINT_ABSOLUTE_ANGLE_INC = 15;
 
   // Vars
   Modes mode;
@@ -55,12 +69,15 @@ private:
 
   bool mode_button_state = false, prev_mode_button_state = false;
   bool joint_button_state = false, prev_joint_button_state = false;
+  JoyStates joy_x_state = JoyStates::X_ZERO, prev_joy_x_state = JoyStates::X_ZERO;
+  JoyStates joy_y_state = JoyStates::Y_ZERO, prev_joy_y_state = JoyStates::Y_ZERO;
+  JoyStates joy_z_state = JoyStates::Z_ZERO, prev_joy_z_state = JoyStates::Z_ZERO;
   bool only_nav_mode = false;
 
   // Methods
   void changeMode(int msg_mode_button_state);
   void changeJoint(int msg_joint_button_state);
-  void changeJointAbsoluteValue(float msg_yaxis);
+  void changeJointAbsoluteValue(float msg_yaxis, float msg_zaxis);
   void changeJointRelativeValue(float msg_yaxis);
   void publishNewJointState(int joint, float value, float duration = 5.0);
 

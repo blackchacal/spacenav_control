@@ -114,26 +114,51 @@ void Controller::changeJoint(int msg_joint_button_state)
   prev_joint_button_state = joint_button_state;
 }
 
-void Controller::changeJointAbsoluteValue(float msg_yaxis)
+void Controller::changeJointAbsoluteValue(float msg_yaxis, float msg_zaxis)
 {
   if (msg_yaxis > 0.5)
-  {
-    if (joint_angle_deg > -180)
-      joint_angle_deg -= 30;
+    joy_y_state = JoyStates::Y_POSITIVE;
+  if (msg_yaxis < -0.5)
+    joy_y_state = JoyStates::Y_NEGATIVE;
+  if (msg_yaxis == 0.0)
+    joy_y_state = JoyStates::Y_ZERO;
+  if (msg_zaxis > 0.5)
+    joy_z_state = JoyStates::Z_POSITIVE;
+  if (msg_zaxis == 0.0)
+    joy_z_state = JoyStates::Z_ZERO;
 
-    joint_angle_rad = (joint_angle_deg * M_PI) / 180;
-    ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1, joint_names[selected_joint].c_str(),
-             joint_angle_deg);
-  }
-  else if (msg_yaxis < -0.5)
+  // Check joy y state change to update the absolute angle in degrees
+  if (joy_y_state != prev_joy_y_state && joy_y_state == JoyStates::Y_ZERO)
   {
-    if (joint_angle_deg < 180)
-      joint_angle_deg += 30;
+    if (prev_joy_y_state == JoyStates::Y_POSITIVE)  // Joy Y is positive
+    {
+      joint_angle_deg -= JOINT_ABSOLUTE_ANGLE_INC;
+      if (joint_angle_deg < -180)
+        joint_angle_deg = -180;
 
-    joint_angle_rad = (joint_angle_deg * M_PI) / 180;
-    ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1, joint_names[selected_joint].c_str(),
-             joint_angle_deg);
+      ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1,
+               joint_names[selected_joint].c_str(), joint_angle_deg);
+    }
+    else  // Joy Y is negative
+    {
+      joint_angle_deg += JOINT_ABSOLUTE_ANGLE_INC;
+      if (joint_angle_deg > 180)
+        joint_angle_deg = 180;
+
+      ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1,
+               joint_names[selected_joint].c_str(), joint_angle_deg);
+    }
   }
+
+  // Check if the joy z axes is negative (joy pressed down) to send the angle to the robot joint
+  if (joy_z_state != prev_joy_z_state && joy_z_state == JoyStates::Z_ZERO)
+  {
+    joint_angle_rad = (joint_angle_deg * M_PI) / 180;
+    publishNewJointState(selected_joint, joint_angle_rad);
+  }
+
+  prev_joy_y_state = joy_y_state;
+  prev_joy_z_state = joy_z_state;
 }
 
 void Controller::changeJointRelativeValue(float msg_yaxis)
@@ -196,7 +221,7 @@ void Controller::getSpacenavDataCallback(const sensor_msgs::Joy::ConstPtr &msg)
   switch (mode)
   {
     case Modes::PosAbs:
-      changeJointAbsoluteValue(msg->axes[1]);
+      changeJointAbsoluteValue(msg->axes[1], msg->axes[2]);
       break;
     case Modes::PosRel:
       changeJointRelativeValue(msg->axes[1]);

@@ -1,10 +1,10 @@
 <launch>
   <!-- 
     Add the robot_description param to be able to control the robot(s) joints. 
-    As an example it is used the rrbot available on the gazebo_ros_demos package.
+    As an example it is used the panda manipulator available on the franka_ros package.
     Currently only supports revolute joints. 
   -->
-  <param name="robot_description" command="$(find xacro)/xacro '$(find rrbot_description)/urdf/rrbot.xacro'" />
+  <param name="robot_description" command="$(find xacro)/xacro $(find franka_description)/robots/panda_arm_hand.urdf.xacro" />
   
   <!-- 
     Dependency node to get the spacemouse data. It connects space mouse to the
