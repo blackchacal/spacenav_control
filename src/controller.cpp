@@ -8,17 +8,19 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
 {
   // Set initial mode to Nav3D
   mode = Modes::Nav3D;
-  ROS_INFO("SPACENAV_CONTROL: Start on Nav3D Mode.");
+  ROS_INFO_NAMED(LOG_TAG, "%s: Start on Nav3D Mode.", LOG_TAG);
 
   this->robot_name = (!robot_name.empty()) ? robot_name : "robot";
+  boost::to_upper(this->robot_name);
 
   if (robot_joints.empty() || controller_topic.empty())
   {
-    ROS_INFO("Only Nav3D mode allowed!");
+    ROS_INFO_NAMED(LOG_TAG, "%s: Only Nav3D mode allowed!", LOG_TAG);
     only_nav_mode = true;
   }
   else
   {
+    ROS_INFO_NAMED(LOG_TAG, "%s: Controlling '%s' robot.", LOG_TAG, this->robot_name.c_str());
     this->robot_joints = robot_joints;
 
     // Extract joint names (only revolute joints) from urdf model joints
@@ -35,7 +37,7 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
     // If there is no revolute joints, set to nav only mode and exit.
     if (total_joints == 0)
     {
-      ROS_INFO("Only Nav3D mode allowed!");
+      ROS_INFO_NAMED(LOG_TAG, "%s: Only Nav3D mode allowed!", LOG_TAG);
       only_nav_mode = true;
       return;
     }
@@ -48,15 +50,15 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
     {
       case Sensitivity::Low:
         this->sensitivity_factor = LOW_SENSITIVITY;
-        ROS_INFO("SPACENAV_CONTROL: Sensitivity set to LOW.");
+        ROS_INFO_NAMED(LOG_TAG, "%s: Sensitivity set to LOW.", LOG_TAG);
         break;
       case Sensitivity::High:
         this->sensitivity_factor = HIGH_SENSITIVITY;
-        ROS_INFO("SPACENAV_CONTROL: Sensitivity set to HIGH.");
+        ROS_INFO_NAMED(LOG_TAG, "%s: Sensitivity set to HIGH.", LOG_TAG);
         break;
       default:
         this->sensitivity_factor = MEDIUM_SENSITIVITY;
-        ROS_INFO("SPACENAV_CONTROL: Sensitivity set to MEDIUM.");
+        ROS_INFO_NAMED(LOG_TAG, "%s: Sensitivity set to MEDIUM.", LOG_TAG);
         break;
     }
 
@@ -82,18 +84,20 @@ void Controller::changeMode(int msg_mode_button_state)
       case Modes::PosRel:
         mode = Modes::PosAbs;
         joint_angle_deg = 0;
-        ROS_INFO("SPACENAV_CONTROL: Set Joint Position Absolute Mode.");
-        ROS_INFO("SPACENAV_CONTROL: Joint %d (%s) selected.", selected_joint + 1, joint_names[selected_joint].c_str());
+        ROS_INFO_NAMED(LOG_TAG, "%s: Set Joint Position Absolute Mode.", LOG_TAG);
+        ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s) selected.", LOG_TAG, selected_joint + 1,
+                       joint_names[selected_joint].c_str());
         break;
       case Modes::PosAbs:
         mode = Modes::Nav3D;
-        ROS_INFO("SPACENAV_CONTROL: Set Nav3D Mode.");
+        ROS_INFO_NAMED(LOG_TAG, "%s: Set Nav3D Mode.", LOG_TAG);
         break;
       case Modes::Nav3D:
         mode = Modes::PosRel;
         joint_angle_deg = 0;
-        ROS_INFO("SPACENAV_CONTROL: Set Joint Position Relative Mode.");
-        ROS_INFO("SPACENAV_CONTROL: Joint %d (%s) selected.", selected_joint + 1, joint_names[selected_joint].c_str());
+        ROS_INFO_NAMED(LOG_TAG, "%s: Set Joint Position Relative Mode.", LOG_TAG);
+        ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s) selected.", LOG_TAG, selected_joint + 1,
+                       joint_names[selected_joint].c_str());
         break;
       default:
         break;
@@ -111,7 +115,8 @@ void Controller::changeJoint(int msg_joint_button_state)
       selected_joint = 0;
 
     joint_angle_deg = 0;
-    ROS_INFO("SPACENAV_CONTROL: Joint %d (%s) selected.", selected_joint + 1, joint_names[selected_joint].c_str());
+    ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s) selected.", LOG_TAG, selected_joint + 1,
+                   joint_names[selected_joint].c_str());
   }
   prev_joint_button_state = joint_button_state;
 }
@@ -147,8 +152,8 @@ void Controller::changeJointAbsoluteValue(float msg_yaxis, float msg_zaxis)
       if (joint_angle_deg < joint_lower_limit)
         joint_angle_deg = joint_lower_limit;
 
-      ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1,
-               joint_names[selected_joint].c_str(), joint_angle_deg);
+      ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s), position: %f.2", LOG_TAG, selected_joint + 1,
+                     joint_names[selected_joint].c_str(), joint_angle_deg);
     }
     else  // Joy Y is negative
     {
@@ -162,8 +167,8 @@ void Controller::changeJointAbsoluteValue(float msg_yaxis, float msg_zaxis)
       if (joint_angle_deg > joint_upper_limit)
         joint_angle_deg = joint_upper_limit;
 
-      ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1,
-               joint_names[selected_joint].c_str(), joint_angle_deg);
+      ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s), position: %f.2", LOG_TAG, selected_joint + 1,
+                     joint_names[selected_joint].c_str(), joint_angle_deg);
     }
   }
 
@@ -190,8 +195,8 @@ void Controller::changeJointRelativeValue(float msg_yaxis)
       joint_angle_deg = joint_lower_limit;
 
     joint_angle_rad = (joint_angle_deg * M_PI) / 180;
-    ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1, joint_names[selected_joint].c_str(),
-             joint_angle_deg);
+    ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s), position: %f.2", LOG_TAG, selected_joint + 1,
+                   joint_names[selected_joint].c_str(), joint_angle_deg);
     publishNewJointState(selected_joint, joint_angle_rad);
   }
   else if (msg_yaxis < -0.5)
@@ -201,8 +206,8 @@ void Controller::changeJointRelativeValue(float msg_yaxis)
       joint_angle_deg = joint_upper_limit;
 
     joint_angle_rad = (joint_angle_deg * M_PI) / 180;
-    ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1, joint_names[selected_joint].c_str(),
-             joint_angle_deg);
+    ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s), position: %f.2", LOG_TAG, selected_joint + 1,
+                   joint_names[selected_joint].c_str(), joint_angle_deg);
     publishNewJointState(selected_joint, joint_angle_rad);
   }
 }

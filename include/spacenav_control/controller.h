@@ -10,6 +10,8 @@
 #include <urdf/model.h>
 #include <boost/algorithm/string.hpp>  // Must be installed on linux distro
 
+#define LOG_TAG "SPACENAV_CONTROL"
+
 namespace spacenav
 {
 enum class Modes
