@@ -58,7 +58,7 @@ private:
   int selected_joint;
   float joint_angle_rad;
   float joint_angle_deg;
-  float sensitivity;
+  float sensitivity_factor;
 
   std::vector<double> positions;
   std::vector<double> velocities;

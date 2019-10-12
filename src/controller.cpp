@@ -19,6 +19,8 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
   }
   else
   {
+    this->robot_joints = robot_joints;
+
     // Extract joint names (only revolute joints) from urdf model joints
     for (std::map<std::string, urdf::JointSharedPtr>::iterator it = robot_joints.begin(); it != robot_joints.end();
          ++it)
@@ -45,15 +47,15 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
     switch (sensitivity)
     {
       case Sensitivity::Low:
-        this->sensitivity = LOW_SENSITIVITY;
+        this->sensitivity_factor = LOW_SENSITIVITY;
         ROS_INFO("SPACENAV_CONTROL: Sensitivity set to LOW.");
         break;
       case Sensitivity::High:
-        this->sensitivity = HIGH_SENSITIVITY;
+        this->sensitivity_factor = HIGH_SENSITIVITY;
         ROS_INFO("SPACENAV_CONTROL: Sensitivity set to HIGH.");
         break;
       default:
-        this->sensitivity = MEDIUM_SENSITIVITY;
+        this->sensitivity_factor = MEDIUM_SENSITIVITY;
         ROS_INFO("SPACENAV_CONTROL: Sensitivity set to MEDIUM.");
         break;
     }
@@ -116,6 +118,9 @@ void Controller::changeJoint(int msg_joint_button_state)
 
 void Controller::changeJointAbsoluteValue(float msg_yaxis, float msg_zaxis)
 {
+  float joint_lower_limit = (robot_joints[joint_names[selected_joint]].get()->limits.get()->lower * 180) / M_PI;
+  float joint_upper_limit = (robot_joints[joint_names[selected_joint]].get()->limits.get()->upper * 180) / M_PI;
+
   if (msg_yaxis > 0.5)
     joy_y_state = JoyStates::Y_POSITIVE;
   if (msg_yaxis < -0.5)
@@ -132,18 +137,30 @@ void Controller::changeJointAbsoluteValue(float msg_yaxis, float msg_zaxis)
   {
     if (prev_joy_y_state == JoyStates::Y_POSITIVE)  // Joy Y is positive
     {
-      joint_angle_deg -= JOINT_ABSOLUTE_ANGLE_INC;
-      if (joint_angle_deg < -180)
-        joint_angle_deg = -180;
+      if (joint_angle_deg == joint_upper_limit)
+        // Ajust limit value to keep absolute angles multiple of increment
+        joint_angle_deg =
+            (ceil(joint_upper_limit / JOINT_ABSOLUTE_ANGLE_INC) * JOINT_ABSOLUTE_ANGLE_INC) - JOINT_ABSOLUTE_ANGLE_INC;
+      else
+        joint_angle_deg -= JOINT_ABSOLUTE_ANGLE_INC;
+
+      if (joint_angle_deg < joint_lower_limit)
+        joint_angle_deg = joint_lower_limit;
 
       ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1,
                joint_names[selected_joint].c_str(), joint_angle_deg);
     }
     else  // Joy Y is negative
     {
-      joint_angle_deg += JOINT_ABSOLUTE_ANGLE_INC;
-      if (joint_angle_deg > 180)
-        joint_angle_deg = 180;
+      if (joint_angle_deg == joint_lower_limit)
+        // Ajust limit value to keep absolute angles multiple of increment
+        joint_angle_deg =
+            (floor(joint_lower_limit / JOINT_ABSOLUTE_ANGLE_INC) * JOINT_ABSOLUTE_ANGLE_INC) + JOINT_ABSOLUTE_ANGLE_INC;
+      else
+        joint_angle_deg += JOINT_ABSOLUTE_ANGLE_INC;
+
+      if (joint_angle_deg > joint_upper_limit)
+        joint_angle_deg = joint_upper_limit;
 
       ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1,
                joint_names[selected_joint].c_str(), joint_angle_deg);
@@ -163,10 +180,14 @@ void Controller::changeJointAbsoluteValue(float msg_yaxis, float msg_zaxis)
 
 void Controller::changeJointRelativeValue(float msg_yaxis)
 {
+  float joint_lower_limit = (robot_joints[joint_names[selected_joint]].get()->limits.get()->lower * 180) / M_PI;
+  float joint_upper_limit = (robot_joints[joint_names[selected_joint]].get()->limits.get()->upper * 180) / M_PI;
+
   if (msg_yaxis > 0.5)
   {
-    if (joint_angle_deg > -180)
-      joint_angle_deg -= sensitivity;
+    joint_angle_deg -= sensitivity_factor;
+    if (joint_angle_deg < joint_lower_limit)
+      joint_angle_deg = joint_lower_limit;
 
     joint_angle_rad = (joint_angle_deg * M_PI) / 180;
     ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1, joint_names[selected_joint].c_str(),
@@ -175,8 +196,9 @@ void Controller::changeJointRelativeValue(float msg_yaxis)
   }
   else if (msg_yaxis < -0.5)
   {
-    if (joint_angle_deg < 180)
-      joint_angle_deg += sensitivity;
+    joint_angle_deg += sensitivity_factor;
+    if (joint_angle_deg > joint_upper_limit)
+      joint_angle_deg = joint_upper_limit;
 
     joint_angle_rad = (joint_angle_deg * M_PI) / 180;
     ROS_INFO("SPACENAV_CONTROL: Joint %d (%s), position: %f.2", selected_joint + 1, joint_names[selected_joint].c_str(),
