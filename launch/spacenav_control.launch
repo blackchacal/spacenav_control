@@ -21,5 +21,14 @@
   <node name="spacenav_control" pkg="spacenav_control" type="spacenav_control_node" args="-s $(arg sensitivity)" output="screen" respawn="true">
     <!-- This param defines the topic subscribed by the robot controller to send commands to the joints -->
     <param name="controller_topic" type="str" value="/panda_arm_controller/command" />
+
+    <!-- This param defines the message type of the topic subscribed by the robot controller to send commands to the joints -->
+    <param name="controller_topic_type" type="str" value="trajectory_msgs::JointTrajectory" />
+
+    <!-- This param defines the topic published by the robot with the current state -->
+    <param name="robot_state_topic" type="str" value="/cartesian_impedance_controller/current_pose" />
+
+    <!-- This param defines the message type of the topic published by the robot with the current state -->
+    <param name="robot_state_topic_type" type="str" value="geometry_msgs::Pose" />
   </node>
 </launch>

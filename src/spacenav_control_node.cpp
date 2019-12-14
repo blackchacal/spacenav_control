@@ -6,9 +6,14 @@
 
 const std::string spacenav_topic = "/spacenav/joy";
 const std::string controller_topic_param = "/spacenav_control/controller_topic";
+const std::string controller_topic_type_param = "/spacenav_control/controller_topic_type";
+const std::string robot_state_topic_param = "/spacenav_control/robot_state_topic";
+const std::string robot_state_topic_type_param = "/spacenav_control/robot_state_topic_type";
 const std::string robot_description_param = "/robot_description";
 
-std::string controller_topic, robot_description;
+std::string controller_topic, controller_topic_type, 
+            robot_state_topic, robot_state_topic_type, 
+            robot_description;
 std::string robot_name;
 std::map<std::string, urdf::JointSharedPtr> robot_joints;
 
@@ -33,19 +38,64 @@ int main(int argc, char **argv)
     }
   }
 
-  if (nh.hasParam(robot_description_param) && nh.hasParam(controller_topic_param))
+  if (nh.hasParam(robot_description_param))
   {
-    nh.getParam(controller_topic_param, controller_topic);
-
     urdf::Model model;
     if (model.initParam(robot_description_param))
     {
       robot_name = model.getName();
       robot_joints = model.joints_;
     }
+    else
+    {
+      ROS_WARN("Unable to read the robot model from URDF.");
+    }
+  }
+  else 
+  {
+    ROS_WARN("The 'robot_description_param' parameter is undefined.");
   }
 
-  spacenav::Controller spnav(nh, robot_name, robot_joints, controller_topic, sensitivity);
+  if (nh.hasParam(controller_topic_param))
+  {
+    nh.getParam(controller_topic_param, controller_topic);
+  } 
+  else 
+  {
+    ROS_WARN("The 'controller_topic_param' parameter is undefined.");
+  }
+
+  if (nh.hasParam(controller_topic_type_param))
+  {
+    nh.getParam(controller_topic_type_param, controller_topic_type);
+  } 
+  else 
+  {
+    ROS_WARN("The 'controller_topic_type_param' parameter is undefined.");
+  }
+
+  if (nh.hasParam(robot_state_topic_param))
+  {
+    nh.getParam(robot_state_topic_param, robot_state_topic);
+  }
+  else 
+  {
+    ROS_WARN("The 'controller_topic_param' parameter is undefined.");
+  }
+
+  if (nh.hasParam(robot_state_topic_type_param))
+  {
+    nh.getParam(robot_state_topic_type_param, robot_state_topic_type);
+  }
+  else 
+  {
+    ROS_WARN("The 'controller_topic_type_param' parameter is undefined.");
+  }
+
+  spacenav::Controller spnav(nh, robot_name, robot_joints, 
+                            controller_topic, controller_topic_type,
+                            robot_state_topic, robot_state_topic_type,
+                            sensitivity);
 
   // Subscribe to /spacenav/joy topic which is published by spacenav_node
   // with spacenav's six degrees of freedom and buttons

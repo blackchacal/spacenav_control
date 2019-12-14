@@ -1,10 +1,30 @@
 #include <spacenav_control/controller.h>
 
+#include <trajectory_msgs/JointTrajectory.h>
+#include <trajectory_msgs/JointTrajectoryPoint.h>
+#include <geometry_msgs/Accel.h>
+#include <geometry_msgs/AccelStamped.h>
+#include <geometry_msgs/AccelWithCovariance.h>
+#include <geometry_msgs/AccelWithCovarianceStamped.h>
+#include <geometry_msgs/Point.h>
+#include <geometry_msgs/Point32.h>
+#include <geometry_msgs/PointStamped.h>
+#include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/QuaternionStamped.h>
+#include <geometry_msgs/Twist.h>
+#include <geometry_msgs/TwistStamped.h>
+#include <geometry_msgs/TwistWithCovariance.h>
+#include <geometry_msgs/TwistWithCovarianceStamped.h>
+#include <geometry_msgs/Wrench.h>
+#include <geometry_msgs/WrenchStamped.h>
+
 using namespace spacenav;
 
 Controller::Controller(ros::NodeHandle nh, std::string robot_name,
-                       std::map<std::string, urdf::JointSharedPtr> robot_joints, std::string controller_topic,
-                       Sensitivity sensitivity)
+                      std::map<std::string, urdf::JointSharedPtr> robot_joints, 
+                      std::string controller_topic, std::string controller_topic_type,
+                      std::string robot_state_topic, std::string robot_state_topic_type,
+                      Sensitivity sensitivity)
 {
   // Set initial mode to Nav3D
   mode = Modes::Nav3D;
@@ -42,8 +62,9 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
       return;
     }
 
-    // Setup topic advertising to send commands to joints
-    joint_position_pub = nh.advertise<trajectory_msgs::JointTrajectory>(controller_topic, 10);
+    // Setup the publishers and subscribers to get robot state and to set new robot state
+    setupPublishersAndSubscribers(nh, controller_topic, controller_topic_type, 
+                                  robot_state_topic, robot_state_topic_type);
 
     // Set default values
     switch (sensitivity)
@@ -81,19 +102,23 @@ void Controller::changeMode(int msg_mode_button_state)
   {
     switch (mode)
     {
-      case Modes::PosRel:
-        mode = Modes::PosAbs;
+      case Modes::JointPosRel:
+        mode = Modes::JointPosAbs;
         joint_angle_deg = 0;
         ROS_INFO_NAMED(LOG_TAG, "%s: Set Joint Position Absolute Mode.", LOG_TAG);
         ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s) selected.", LOG_TAG, selected_joint + 1,
                        joint_names[selected_joint].c_str());
         break;
-      case Modes::PosAbs:
+      case Modes::JointPosAbs:
+        mode = Modes::TaskPosRel;
+        ROS_INFO_NAMED(LOG_TAG, "%s: Set Task Position Relative Mode.", LOG_TAG);
+        break;
+      case Modes::TaskPosRel:
         mode = Modes::Nav3D;
         ROS_INFO_NAMED(LOG_TAG, "%s: Set Nav3D Mode.", LOG_TAG);
         break;
       case Modes::Nav3D:
-        mode = Modes::PosRel;
+        mode = Modes::JointPosRel;
         joint_angle_deg = 0;
         ROS_INFO_NAMED(LOG_TAG, "%s: Set Joint Position Relative Mode.", LOG_TAG);
         ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s) selected.", LOG_TAG, selected_joint + 1,
@@ -212,6 +237,70 @@ void Controller::changeJointRelativeValue(float msg_yaxis)
   }
 }
 
+void Controller::changePoseRelativeValue(const sensor_msgs::Joy::ConstPtr &msg)
+{
+  float posx = msg->axes[0];
+  float posy = msg->axes[1];
+  float posz = msg->axes[2];
+  float orientx = msg->axes[3];
+  float orienty = msg->axes[4];
+  float orientz = msg->axes[5];
+  float orient_sensitivity = sensitivity_factor * 10;
+
+  geometry_msgs::Pose new_pose;
+  new_pose.position.x = current_pose.position.x + sensitivity_factor * (-posx);
+  new_pose.position.y = current_pose.position.y + sensitivity_factor * (-posy);
+  new_pose.position.z = current_pose.position.z + sensitivity_factor * posz;
+
+  Eigen::Quaterniond current_orientation(current_pose.orientation.w, 
+                                        current_pose.orientation.x,
+                                        current_pose.orientation.y,
+                                        current_pose.orientation.z);
+
+  Eigen::Matrix3d Rc = current_orientation.matrix(); // Rotation matrix for current pose
+  Eigen::Matrix3d Rs; // Rotation matrix for spacenav
+  Eigen::Matrix3d Rsx; // Rotation matrix for spacenav x-axis rotation
+  Eigen::Matrix3d Rsy; // Rotation matrix for spacenav y-axis rotation
+  Eigen::Matrix3d Rsz; // Rotation matrix for spacenav z-axis rotation
+
+  if (orientx >= 0 && orientx < 0.001 && 
+      orienty >= 0 && orienty < 0.001 && 
+      orientz >= 0 && orientz < 0.001) 
+  {
+    Rs << 1, 0, 0,
+          0, 1, 0,
+          0, 0, 1;     
+  }
+  else 
+  {
+    Rsx << 1,                 0,                  0,
+          0, cos(orient_sensitivity * orientx), -sin(orient_sensitivity * orientx),
+          0, sin(orient_sensitivity * orientx),  cos(orient_sensitivity * orientx);
+
+    Rsy <<  cos(-orient_sensitivity * orienty),  0, sin(-orient_sensitivity * orienty),
+                            0, 1,                 0,
+          -sin(-orient_sensitivity * orienty), 0, cos(-orient_sensitivity * orienty);
+
+    Rsz << cos(-orient_sensitivity * orientz), -sin(-orient_sensitivity * orientz), 0,
+          sin(-orient_sensitivity * orientz),  cos(-orient_sensitivity * orientz), 0,
+                          0,                  0, 1;
+
+    Rs = Rsx * Rsy * Rsz;
+  }
+
+  Eigen::Matrix3d Rf = Rc * Rs; // In relation to end-effector
+  // Eigen::Matrix3d Rf = Rs * Rc; // In relation to base
+
+  Eigen::Quaterniond new_orientation(Rf);
+
+  new_pose.orientation.x = new_orientation.x();
+  new_pose.orientation.y = new_orientation.y();
+  new_pose.orientation.z = new_orientation.z();
+  new_pose.orientation.w = new_orientation.w();
+
+  publishNewCartesianPose(new_pose);
+}
+
 void Controller::publishNewJointState(int joint, float value, float duration)
 {
   positions[joint] = value;
@@ -229,6 +318,72 @@ void Controller::publishNewJointState(int joint, float value, float duration)
   joint_position_pub.publish(joint_msg);
 }
 
+void Controller::publishNewCartesianPose(const geometry_msgs::Pose pose)
+{
+  pose_msg.position = pose.position;
+  pose_msg.orientation = pose.orientation;
+  cartesian_pose_pub.publish(pose_msg);
+}
+
+void Controller::setupPublishersAndSubscribers(ros::NodeHandle nh, std::string controller_topic, std::string controller_topic_type, 
+                                    std::string robot_state_topic, std::string robot_state_topic_type)
+{
+  // Setup topic advertising to send commands to joints
+  if (controller_topic_type.compare("trajectory_msgs::JointTrajectory") == 0)
+    joint_position_pub = nh.advertise<trajectory_msgs::JointTrajectory>(controller_topic, 10);
+  else if (controller_topic_type.compare("trajectory_msgs::JointTrajectoryPoint") == 0)
+    joint_position_pub = nh.advertise<trajectory_msgs::JointTrajectoryPoint>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::Accel") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::Accel>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::AccelStamped") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::AccelStamped>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::AccelWithCovariance") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::AccelWithCovariance>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::AccelWithCovarianceStamped") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::AccelWithCovarianceStamped>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::Point32") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::Point32>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::Point") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::Point>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::PointStamped") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::PointStamped>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::Pose") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::Pose>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::PoseArray") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::PoseArray>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::PoseStamped") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::PoseStamped>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::PoseWithCovariance") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::PoseWithCovariance>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::PoseWithCovarianceStamped") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::Quaternion") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::Quaternion>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::QuaternionStamped") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::QuaternionStamped>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::Twist") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::Twist>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::TwistStamped") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::TwistStamped>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::TwistWithCovariance") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::TwistWithCovariance>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::TwistWithCovarianceStamped") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::TwistWithCovarianceStamped>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::Wrench") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::Wrench>(controller_topic, 10);
+  else if (controller_topic_type.compare("geometry_msgs::WrenchStamped") == 0)
+    cartesian_pose_pub = nh.advertise<geometry_msgs::WrenchStamped>(controller_topic, 10);
+
+  if (robot_state_topic_type.compare("geometry_msgs::Pose") == 0)
+    robot_state_sub = nh.subscribe(robot_state_topic, 10, &Controller::getRobotStatePoseCallback, this);
+  else if (robot_state_topic_type.compare("geometry_msgs::PoseStamped") == 0)
+    robot_state_sub = nh.subscribe(robot_state_topic, 10, &Controller::getRobotStatePoseStampedCallback, this);
+  else if (robot_state_topic_type.compare("geometry_msgs::PoseWithCovariance") == 0)
+    robot_state_sub = nh.subscribe(robot_state_topic, 10, &Controller::getRobotStatePoseCovCallback, this);
+  else if (robot_state_topic_type.compare("geometry_msgs::PoseWithCovarianceStamped") == 0)
+    robot_state_sub = nh.subscribe(robot_state_topic, 10, &Controller::getRobotStatePoseCovStampedCallback, this);
+}
+
 void Controller::getSpacenavDataCallback(const sensor_msgs::Joy::ConstPtr &msg)
 {
   /**
@@ -241,19 +396,50 @@ void Controller::getSpacenavDataCallback(const sensor_msgs::Joy::ConstPtr &msg)
   // Change mode on left button click
   changeMode(msg->buttons[0]);
 
-  // Change joint on right button click if on PosRel or PosAbs modes
-  if (mode == Modes::PosAbs || mode == Modes::PosRel)
+  // Change joint on right button click if on JointPosRel or JointPosAbs modes
+  if (mode == Modes::JointPosAbs || mode == Modes::JointPosRel)
     changeJoint(msg->buttons[1]);
 
   switch (mode)
   {
-    case Modes::PosAbs:
+    case Modes::JointPosAbs:
       changeJointAbsoluteValue(msg->axes[1], msg->axes[2]);
       break;
-    case Modes::PosRel:
+    case Modes::JointPosRel:
       changeJointRelativeValue(msg->axes[1]);
+      break;
+    case Modes::TaskPosRel:
+      changePoseRelativeValue(msg);
       break;
     default:
       break;
   }
+}
+
+void Controller::getRobotStatePoseCallback(const geometry_msgs::PoseConstPtr &msg)
+{
+  // Save robot current pose
+  current_pose.position = msg->position;
+  current_pose.orientation = msg->orientation;
+}
+
+void Controller::getRobotStatePoseStampedCallback(const geometry_msgs::PoseStampedConstPtr &msg)
+{
+  // Save robot current pose
+  current_pose.position = msg->pose.position;
+  current_pose.orientation = msg->pose.orientation;
+}
+
+void Controller::getRobotStatePoseCovCallback(const geometry_msgs::PoseWithCovarianceConstPtr &msg)
+{
+  // Save robot current pose
+  current_pose.position = msg->pose.position;
+  current_pose.orientation = msg->pose.orientation;
+}
+
+void Controller::getRobotStatePoseCovStampedCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr &msg)
+{
+  // Save robot current pose
+  current_pose.position = msg->pose.pose.position;
+  current_pose.orientation = msg->pose.pose.orientation;
 }
