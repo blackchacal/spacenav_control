@@ -298,7 +298,8 @@ void Controller::changePoseRelativeValue(const sensor_msgs::Joy::ConstPtr &msg)
   new_pose.orientation.z = new_orientation.z();
   new_pose.orientation.w = new_orientation.w();
 
-  publishNewCartesianPose(new_pose);
+  if (posx || posy || posz || orientx || orienty || orientz)
+    publishNewCartesianPose(new_pose);
 }
 
 void Controller::publishNewJointState(int joint, float value, float duration)
