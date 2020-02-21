@@ -1,9 +1,10 @@
 #ifndef SPACENAV_CONTROL_CONTROLLER_H
 #define SPACENAV_CONTROL_CONTROLLER_H
 
+#include <fstream>
+
 #include <ros/ros.h>
 #include <sensor_msgs/Joy.h>
-#include <string.h>
 #include <trajectory_msgs/JointTrajectory.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 #include <geometry_msgs/Pose.h>
@@ -27,6 +28,7 @@ enum class Modes
   JointPosRel,
   JointPosAbs,
   TaskPosRel,
+  GetPoints,
   Nav3D
 };
 
@@ -69,7 +71,11 @@ private:
   float joint_angle_rad;
   float joint_angle_deg;
   float sensitivity_factor;
+  bool robot;
   geometry_msgs::Pose current_pose;
+
+  // Files
+  std::fstream pts_fh; // File handler for space points data file
 
   // Publishers/Subscribers
   ros::Publisher joint_position_pub;
@@ -85,7 +91,7 @@ private:
   std::vector<double> effort;
 
   bool mode_button_state = false, prev_mode_button_state = false;
-  bool joint_button_state = false, prev_joint_button_state = false;
+  bool option_button_state = false, prev_option_button_state = false;
   JoyStates joy_x_state = JoyStates::X_ZERO, prev_joy_x_state = JoyStates::X_ZERO;
   JoyStates joy_y_state = JoyStates::Y_ZERO, prev_joy_y_state = JoyStates::Y_ZERO;
   JoyStates joy_z_state = JoyStates::Z_ZERO, prev_joy_z_state = JoyStates::Z_ZERO;
@@ -93,7 +99,7 @@ private:
 
   // Methods
   void changeMode(int msg_mode_button_state);
-  void changeJoint(int msg_joint_button_state);
+  void changeJoint(int msg_option_button_state);
   void changeJointAbsoluteValue(float msg_yaxis, float msg_zaxis);
   void changeJointRelativeValue(float msg_yaxis);
   void changePoseRelativeValue(const sensor_msgs::Joy::ConstPtr &msg);
@@ -101,6 +107,7 @@ private:
   void publishNewCartesianPose(const geometry_msgs::Pose pose);
   void setupPublishersAndSubscribers(ros::NodeHandle nh, std::string controller_topic, std::string controller_topic_type, 
                                     std::string robot_state_topic, std::string robot_state_topic_type);
+  void savePoints(const sensor_msgs::Joy::ConstPtr &msg);
 
   // Callback methods
   void getRobotStatePoseCallback(const geometry_msgs::PoseConstPtr &msg);
@@ -112,7 +119,7 @@ public:
             std::map<std::string, urdf::JointSharedPtr> robot_joints,
             std::string controller_topic, std::string controller_topic_type, 
             std::string robot_state_topic, std::string robot_state_topic_type, 
-            Sensitivity sensitivity);
+            Sensitivity sensitivity, bool is_real);
   // Callback methods
   void getSpacenavDataCallback(const sensor_msgs::Joy::ConstPtr &msg);
 };

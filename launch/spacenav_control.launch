@@ -17,8 +17,14 @@
     Accepted values: 0 = Low, 1 = Medium, 2 = High 
    -->
   <arg name="sensitivity" default="1"/>
+  <!-- 
+    Defines if the spacemouse is being used on the real robot or simulation in gazebo.
+    Accepted values: 1/true = real robot, 0/false = simulation 
+   -->
+  <arg name="is_robot" default="false"/>
+
   <!-- Main node to add various control features to spacemouse. -->
-  <node name="spacenav_control" pkg="spacenav_control" type="spacenav_control_node" args="-s $(arg sensitivity)" output="screen" respawn="true">
+  <node name="spacenav_control" pkg="spacenav_control" type="spacenav_control_node" args="-s $(arg sensitivity) -r $(arg is_robot)" output="screen" respawn="true">
     <!-- This param defines the topic subscribed by the robot controller to send commands to the joints -->
     <param name="controller_topic" type="str" value="/panda_arm_controller/command" />
 

@@ -24,8 +24,11 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
                       std::map<std::string, urdf::JointSharedPtr> robot_joints, 
                       std::string controller_topic, std::string controller_topic_type,
                       std::string robot_state_topic, std::string robot_state_topic_type,
-                      Sensitivity sensitivity)
+                      Sensitivity sensitivity, bool is_robot)
 {
+  // Define is the controller is simulation or real robot
+  robot = is_robot;
+
   // Set initial mode to Nav3D
   mode = Modes::Nav3D;
   ROS_INFO_NAMED(LOG_TAG, "%s: Start on Nav3D Mode.", LOG_TAG);
@@ -114,8 +117,20 @@ void Controller::changeMode(int msg_mode_button_state)
         ROS_INFO_NAMED(LOG_TAG, "%s: Set Task Position Relative Mode.", LOG_TAG);
         break;
       case Modes::TaskPosRel:
+        mode = Modes::GetPoints;
+        ROS_INFO_NAMED(LOG_TAG, "%s: Set Get Points in Space Mode.", LOG_TAG);
+        {
+          // Open file to append point data
+          std::string path;
+          path = "/home/rtonet/ROS/tese/src/panda_3dbioprint_debug_tools";
+          pts_fh.open(path + "/data/segmentation_points.dat", std::fstream::out);
+          pts_fh << "px py pz ox oy oz ow" << "\n";
+        }
+        break;
+      case Modes::GetPoints:
         mode = Modes::Nav3D;
         ROS_INFO_NAMED(LOG_TAG, "%s: Set Nav3D Mode.", LOG_TAG);
+        pts_fh.close(); // Close file
         break;
       case Modes::Nav3D:
         mode = Modes::JointPosRel;
@@ -131,10 +146,10 @@ void Controller::changeMode(int msg_mode_button_state)
   prev_mode_button_state = mode_button_state;
 }
 
-void Controller::changeJoint(int msg_joint_button_state)
+void Controller::changeJoint(int msg_option_button_state)
 {
-  joint_button_state = msg_joint_button_state;
-  if (!only_nav_mode && joint_button_state != prev_joint_button_state && !joint_button_state)
+  option_button_state = msg_option_button_state;
+  if (!only_nav_mode && option_button_state != prev_option_button_state && !option_button_state)
   {
     if (++selected_joint == total_joints)
       selected_joint = 0;
@@ -143,7 +158,7 @@ void Controller::changeJoint(int msg_joint_button_state)
     ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s) selected.", LOG_TAG, selected_joint + 1,
                    joint_names[selected_joint].c_str());
   }
-  prev_joint_button_state = joint_button_state;
+  prev_option_button_state = option_button_state;
 }
 
 void Controller::changeJointAbsoluteValue(float msg_yaxis, float msg_zaxis)
@@ -412,9 +427,40 @@ void Controller::getSpacenavDataCallback(const sensor_msgs::Joy::ConstPtr &msg)
     case Modes::TaskPosRel:
       changePoseRelativeValue(msg);
       break;
+    case Modes::GetPoints:
+      if (robot)
+      {
+        savePoints(msg);
+      }
+      else
+      {
+        changePoseRelativeValue(msg);
+        savePoints(msg);
+      }
+      break;
     default:
       break;
   }
+}
+
+void Controller::savePoints(const sensor_msgs::Joy::ConstPtr &msg)
+{
+  option_button_state = msg->buttons[1];
+  if (!only_nav_mode && option_button_state != prev_option_button_state && !option_button_state)
+  {
+    if (pts_fh.is_open())
+    {
+      pts_fh << current_pose.position.x << " " << current_pose.position.y << " " << current_pose.position.z \
+      << " " << current_pose.orientation.x << " " << current_pose.orientation.y << " " << current_pose.orientation.z << " " << current_pose.orientation.w << "\n";
+      ROS_INFO_NAMED(LOG_TAG, "%s: Stored pose: p(%.4f, %.4f, %.4f) o(%.4f, %.4f, %.4f, %.4f).", LOG_TAG, current_pose.position.x, current_pose.position.y, current_pose.position.z, \
+      current_pose.orientation.x, current_pose.orientation.y, current_pose.orientation.z, current_pose.orientation.w);
+    }
+    else
+    {
+      ROS_ERROR("The files were not properly opened!");
+    }
+  }
+  prev_option_button_state = option_button_state;
 }
 
 void Controller::getRobotStatePoseCallback(const geometry_msgs::PoseConstPtr &msg)

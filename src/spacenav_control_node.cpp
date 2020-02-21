@@ -23,15 +23,19 @@ int main(int argc, char **argv)
   ros::NodeHandle nh;
 
   spacenav::Sensitivity sensitivity;
+  bool is_robot = false;
 
   // Process command-line arguments
   int opt;
-  while ((opt = getopt(argc, argv, ":s:")) != -1)
+  while ((opt = getopt(argc, argv, ":s:r:")) != -1)
   {
     switch (opt)
     {
       case 's':
         sensitivity = static_cast<spacenav::Sensitivity>(std::stoi(optarg));
+        break;
+      case 'r':
+        is_robot = static_cast<bool>(std::stoi(optarg));
         break;
       default:
         break;
@@ -95,7 +99,7 @@ int main(int argc, char **argv)
   spacenav::Controller spnav(nh, robot_name, robot_joints, 
                             controller_topic, controller_topic_type,
                             robot_state_topic, robot_state_topic_type,
-                            sensitivity);
+                            sensitivity, is_robot);
 
   // Subscribe to /spacenav/joy topic which is published by spacenav_node
   // with spacenav's six degrees of freedom and buttons
