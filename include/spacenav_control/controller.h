@@ -2,6 +2,8 @@
 #define SPACENAV_CONTROL_CONTROLLER_H
 
 #include <fstream>
+#include <string>
+#include <list>
 
 #include <ros/ros.h>
 #include <sensor_msgs/Joy.h>
@@ -63,6 +65,7 @@ private:
 
   // Vars
   Modes mode;
+  std::list<char> active_modes;
   std::string robot_name;
   std::map<std::string, urdf::JointSharedPtr> robot_joints;
   std::vector<std::string> joint_names;
@@ -108,6 +111,12 @@ private:
   void setupPublishersAndSubscribers(ros::NodeHandle nh, std::string controller_topic, std::string controller_topic_type, 
                                     std::string robot_state_topic, std::string robot_state_topic_type);
   void savePoints(const sensor_msgs::Joy::ConstPtr &msg);
+  bool checkIfModeIsActive(char mode);
+  void setJointPosRelMode(void);
+  void setJointPosAbsMode(void);
+  void setTaskPosRelMode(void);
+  void setGetPointsMode(void);
+  void setNav3DMode(void);
 
   // Callback methods
   void getRobotStatePoseCallback(const geometry_msgs::PoseConstPtr &msg);
@@ -119,7 +128,7 @@ public:
             std::map<std::string, urdf::JointSharedPtr> robot_joints,
             std::string controller_topic, std::string controller_topic_type, 
             std::string robot_state_topic, std::string robot_state_topic_type, 
-            Sensitivity sensitivity, bool is_real);
+            Sensitivity sensitivity, bool is_real, std::string active_modes);
   // Callback methods
   void getSpacenavDataCallback(const sensor_msgs::Joy::ConstPtr &msg);
 };

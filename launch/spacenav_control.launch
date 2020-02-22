@@ -23,8 +23,15 @@
    -->
   <arg name="is_robot" default="false"/>
 
+  <!-- 
+    Defines which spacemouse modes are active.
+    Accepted values: JointPosRel = 0, JointPosAbs = 1, TaskPosRel = 2, GetPoints = 3.
+    The values are separated by commas, e.g., "0,1" or "0,1,2,3" or "3".
+   -->
+  <arg name="active_modes" default="3"/>
+
   <!-- Main node to add various control features to spacemouse. -->
-  <node name="spacenav_control" pkg="spacenav_control" type="spacenav_control_node" args="-s $(arg sensitivity) -r $(arg is_robot)" output="screen" respawn="true">
+  <node name="spacenav_control" pkg="spacenav_control" type="spacenav_control_node" args="-s $(arg sensitivity) -r $(arg is_robot) -m $(arg active_modes)" output="screen" respawn="true">
     <!-- This param defines the topic subscribed by the robot controller to send commands to the joints -->
     <param name="controller_topic" type="str" value="/panda_arm_controller/command" />
 

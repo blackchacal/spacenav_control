@@ -24,10 +24,15 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
                       std::map<std::string, urdf::JointSharedPtr> robot_joints, 
                       std::string controller_topic, std::string controller_topic_type,
                       std::string robot_state_topic, std::string robot_state_topic_type,
-                      Sensitivity sensitivity, bool is_robot)
+                      Sensitivity sensitivity, bool is_robot, std::string active_modes)
 {
   // Define is the controller is simulation or real robot
   robot = is_robot;
+
+  // Set the active modes from command line arguments
+  for (char c: active_modes)
+    if (c != ',')
+      this->active_modes.push_back(c);
 
   // Set initial mode to Nav3D
   mode = Modes::Nav3D;
@@ -36,7 +41,7 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
   this->robot_name = (!robot_name.empty()) ? robot_name : "robot";
   boost::to_upper(this->robot_name);
 
-  if (robot_joints.empty() || controller_topic.empty())
+  if (robot_joints.empty() || controller_topic.empty() || active_modes.empty())
   {
     ROS_INFO_NAMED(LOG_TAG, "%s: Only Nav3D mode allowed!", LOG_TAG);
     only_nav_mode = true;
@@ -106,38 +111,41 @@ void Controller::changeMode(int msg_mode_button_state)
     switch (mode)
     {
       case Modes::JointPosRel:
-        mode = Modes::JointPosAbs;
-        joint_angle_deg = 0;
-        ROS_INFO_NAMED(LOG_TAG, "%s: Set Joint Position Absolute Mode.", LOG_TAG);
-        ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s) selected.", LOG_TAG, selected_joint + 1,
-                       joint_names[selected_joint].c_str());
+        if (checkIfModeIsActive('1'))
+          setJointPosAbsMode();
+        else if (checkIfModeIsActive('2'))
+          setTaskPosRelMode();
+        else if (checkIfModeIsActive('3'))
+          setGetPointsMode();
+        else
+          setNav3DMode();
         break;
       case Modes::JointPosAbs:
-        mode = Modes::TaskPosRel;
-        ROS_INFO_NAMED(LOG_TAG, "%s: Set Task Position Relative Mode.", LOG_TAG);
+        if (checkIfModeIsActive('2'))
+          setTaskPosRelMode();
+        else if (checkIfModeIsActive('3'))
+          setGetPointsMode();
+        else
+          setNav3DMode();
         break;
       case Modes::TaskPosRel:
-        mode = Modes::GetPoints;
-        ROS_INFO_NAMED(LOG_TAG, "%s: Set Get Points in Space Mode.", LOG_TAG);
-        {
-          // Open file to append point data
-          std::string path;
-          path = "/home/rtonet/ROS/tese/src/panda_3dbioprint_debug_tools";
-          pts_fh.open(path + "/data/segmentation_points.dat", std::fstream::out);
-          pts_fh << "px py pz ox oy oz ow" << "\n";
-        }
+        if (checkIfModeIsActive('3'))
+          setGetPointsMode();
+        else
+          setNav3DMode();
         break;
       case Modes::GetPoints:
-        mode = Modes::Nav3D;
-        ROS_INFO_NAMED(LOG_TAG, "%s: Set Nav3D Mode.", LOG_TAG);
-        pts_fh.close(); // Close file
+        setNav3DMode();
         break;
       case Modes::Nav3D:
-        mode = Modes::JointPosRel;
-        joint_angle_deg = 0;
-        ROS_INFO_NAMED(LOG_TAG, "%s: Set Joint Position Relative Mode.", LOG_TAG);
-        ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s) selected.", LOG_TAG, selected_joint + 1,
-                       joint_names[selected_joint].c_str());
+        if (checkIfModeIsActive('0'))
+          setJointPosRelMode();
+        else if (checkIfModeIsActive('1'))
+          setJointPosAbsMode();
+        else if (checkIfModeIsActive('2'))
+          setTaskPosRelMode();
+        else if (checkIfModeIsActive('3'))
+          setGetPointsMode();
         break;
       default:
         break;
@@ -461,6 +469,53 @@ void Controller::savePoints(const sensor_msgs::Joy::ConstPtr &msg)
     }
   }
   prev_option_button_state = option_button_state;
+}
+
+bool Controller::checkIfModeIsActive(char mode)
+{
+  return (std::find(active_modes.begin(), active_modes.end(), mode) != active_modes.end());
+}
+
+void Controller::setJointPosRelMode(void)
+{
+  mode = Modes::JointPosRel;
+  joint_angle_deg = 0;
+  ROS_INFO_NAMED(LOG_TAG, "%s: Set Joint Position Relative Mode.", LOG_TAG);
+  ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s) selected.", LOG_TAG, selected_joint + 1, joint_names[selected_joint].c_str());
+}
+
+void Controller::setJointPosAbsMode(void)
+{
+  mode = Modes::JointPosAbs;
+  joint_angle_deg = 0;
+  ROS_INFO_NAMED(LOG_TAG, "%s: Set Joint Position Absolute Mode.", LOG_TAG);
+  ROS_INFO_NAMED(LOG_TAG, "%s: Joint %d (%s) selected.", LOG_TAG, selected_joint + 1, joint_names[selected_joint].c_str());
+}
+
+void Controller::setTaskPosRelMode(void)
+{
+  mode = Modes::TaskPosRel;
+  ROS_INFO_NAMED(LOG_TAG, "%s: Set Task Position Relative Mode.", LOG_TAG);
+}
+
+void Controller::setGetPointsMode(void)
+{
+  mode = Modes::GetPoints;
+  ROS_INFO_NAMED(LOG_TAG, "%s: Set Get Points in Space Mode.", LOG_TAG);
+  {
+    // Open file to append point data
+    std::string path;
+    path = "/home/rtonet/ROS/tese/src/panda_3dbioprint_debug_tools";
+    pts_fh.open(path + "/data/segmentation_points.dat", std::fstream::out);
+    pts_fh << "px py pz ox oy oz ow" << "\n";
+  }
+}
+
+void Controller::setNav3DMode(void)
+{
+  mode = Modes::Nav3D;
+  ROS_INFO_NAMED(LOG_TAG, "%s: Set Nav3D Mode.", LOG_TAG);
+  pts_fh.close(); // Close file
 }
 
 void Controller::getRobotStatePoseCallback(const geometry_msgs::PoseConstPtr &msg)
