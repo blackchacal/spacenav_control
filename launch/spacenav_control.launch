@@ -43,5 +43,8 @@
 
     <!-- This param defines the message type of the topic published by the robot with the current state -->
     <param name="robot_state_topic_type" type="str" value="geometry_msgs::Pose" />
+
+    <!-- This param defines the topic published by space mouse when selecting poses -->
+    <param name="markers_topic" type="str" value="/panda_3dbioprint_vision_system/wound_segmentation_markers" />
   </node>
 </launch>

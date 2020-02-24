@@ -24,6 +24,7 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
                       std::map<std::string, urdf::JointSharedPtr> robot_joints, 
                       std::string controller_topic, std::string controller_topic_type,
                       std::string robot_state_topic, std::string robot_state_topic_type,
+                      std::string markers_topic,
                       Sensitivity sensitivity, bool is_robot, std::string active_modes)
 {
   // Define is the controller is simulation or real robot
@@ -72,7 +73,7 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
 
     // Setup the publishers and subscribers to get robot state and to set new robot state
     setupPublishersAndSubscribers(nh, controller_topic, controller_topic_type, 
-                                  robot_state_topic, robot_state_topic_type);
+                                  robot_state_topic, robot_state_topic_type, markers_topic);
 
     // Set default values
     switch (sensitivity)
@@ -350,7 +351,7 @@ void Controller::publishNewCartesianPose(const geometry_msgs::Pose pose)
 }
 
 void Controller::setupPublishersAndSubscribers(ros::NodeHandle nh, std::string controller_topic, std::string controller_topic_type, 
-                                    std::string robot_state_topic, std::string robot_state_topic_type)
+                                    std::string robot_state_topic, std::string robot_state_topic_type, std::string markers_topic)
 {
   // Setup topic advertising to send commands to joints
   if (controller_topic_type.compare("trajectory_msgs::JointTrajectory") == 0)
@@ -397,6 +398,9 @@ void Controller::setupPublishersAndSubscribers(ros::NodeHandle nh, std::string c
     cartesian_pose_pub = nh.advertise<geometry_msgs::Wrench>(controller_topic, 10);
   else if (controller_topic_type.compare("geometry_msgs::WrenchStamped") == 0)
     cartesian_pose_pub = nh.advertise<geometry_msgs::WrenchStamped>(controller_topic, 10);
+
+  // Setup the markers publisher
+  marker_pub = nh.advertise<visualization_msgs::Marker>(markers_topic, 10);
 
   if (robot_state_topic_type.compare("geometry_msgs::Pose") == 0)
     robot_state_sub = nh.subscribe(robot_state_topic, 10, &Controller::getRobotStatePoseCallback, this);
@@ -462,6 +466,7 @@ void Controller::savePoints(const sensor_msgs::Joy::ConstPtr &msg)
       << " " << current_pose.orientation.x << " " << current_pose.orientation.y << " " << current_pose.orientation.z << " " << current_pose.orientation.w << "\n";
       ROS_INFO_NAMED(LOG_TAG, "%s: Stored pose: p(%.4f, %.4f, %.4f) o(%.4f, %.4f, %.4f, %.4f).", LOG_TAG, current_pose.position.x, current_pose.position.y, current_pose.position.z, \
       current_pose.orientation.x, current_pose.orientation.y, current_pose.orientation.z, current_pose.orientation.w);
+      publishPoseMarker(current_pose);
     }
     else
     {
@@ -508,6 +513,7 @@ void Controller::setGetPointsMode(void)
     path = "/home/rtonet/ROS/tese/src/panda_3dbioprint_debug_tools";
     pts_fh.open(path + "/data/segmentation_points.dat", std::fstream::out);
     pts_fh << "px py pz ox oy oz ow" << "\n";
+    marker_id = 0;
   }
 }
 
@@ -516,6 +522,27 @@ void Controller::setNav3DMode(void)
   mode = Modes::Nav3D;
   ROS_INFO_NAMED(LOG_TAG, "%s: Set Nav3D Mode.", LOG_TAG);
   pts_fh.close(); // Close file
+}
+
+void Controller::publishPoseMarker(geometry_msgs::Pose pose)
+{
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "panda_link0";
+  marker.header.stamp = ros::Time();
+  marker.ns = "panda_3dbioprint_vision_system";
+  marker.id = marker_id;
+  marker.type = visualization_msgs::Marker::SPHERE;
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.pose = pose;
+  marker.scale.x = 0.005;
+  marker.scale.y = 0.005;
+  marker.scale.z = 0.005;
+  marker.color.r = 1.0;
+  marker.color.g = 1.0;
+  marker.color.b = 0;
+  marker.color.a = 1.0;
+  marker_pub.publish(marker);
+  marker_id++;
 }
 
 void Controller::getRobotStatePoseCallback(const geometry_msgs::PoseConstPtr &msg)

@@ -9,11 +9,12 @@ const std::string controller_topic_param = "/spacenav_control/controller_topic";
 const std::string controller_topic_type_param = "/spacenav_control/controller_topic_type";
 const std::string robot_state_topic_param = "/spacenav_control/robot_state_topic";
 const std::string robot_state_topic_type_param = "/spacenav_control/robot_state_topic_type";
+const std::string markers_topic_param = "/spacenav_control/markers_topic";
 const std::string robot_description_param = "/robot_description";
 
 std::string controller_topic, controller_topic_type, 
-            robot_state_topic, robot_state_topic_type, 
-            robot_description;
+            robot_state_topic, robot_state_topic_type,
+            markers_topic, robot_description;
 std::string robot_name;
 std::map<std::string, urdf::JointSharedPtr> robot_joints;
 
@@ -100,9 +101,18 @@ int main(int argc, char **argv)
     ROS_WARN("The 'controller_topic_type_param' parameter is undefined.");
   }
 
+  if (nh.hasParam(markers_topic_param))
+  {
+    nh.getParam(markers_topic_param, markers_topic);
+  }
+  else 
+  {
+    ROS_WARN("The 'markers_topic_param' parameter is undefined.");
+  }
+
   spacenav::Controller spnav(nh, robot_name, robot_joints, 
                             controller_topic, controller_topic_type,
-                            robot_state_topic, robot_state_topic_type,
+                            robot_state_topic, robot_state_topic_type, markers_topic,
                             sensitivity, is_robot, active_modes);
 
   // Subscribe to /spacenav/joy topic which is published by spacenav_node

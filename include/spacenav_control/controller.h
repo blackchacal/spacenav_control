@@ -14,6 +14,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovariance.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <visualization_msgs/Marker.h>
 
 #include <cmath>
 #include <Eigen/Dense>
@@ -76,6 +77,7 @@ private:
   float sensitivity_factor;
   bool robot;
   geometry_msgs::Pose current_pose;
+  int marker_id = 0;
 
   // Files
   std::fstream pts_fh; // File handler for space points data file
@@ -83,6 +85,7 @@ private:
   // Publishers/Subscribers
   ros::Publisher joint_position_pub;
   ros::Publisher cartesian_pose_pub;
+  ros::Publisher marker_pub;
   ros::Subscriber robot_state_sub;
   trajectory_msgs::JointTrajectory joint_msg;
   trajectory_msgs::JointTrajectoryPoint point;
@@ -109,7 +112,8 @@ private:
   void publishNewJointState(int joint, float value, float duration = 5.0);
   void publishNewCartesianPose(const geometry_msgs::Pose pose);
   void setupPublishersAndSubscribers(ros::NodeHandle nh, std::string controller_topic, std::string controller_topic_type, 
-                                    std::string robot_state_topic, std::string robot_state_topic_type);
+                                    std::string robot_state_topic, std::string robot_state_topic_type, 
+                                    std::string markers_topic);
   void savePoints(const sensor_msgs::Joy::ConstPtr &msg);
   bool checkIfModeIsActive(char mode);
   void setJointPosRelMode(void);
@@ -117,6 +121,7 @@ private:
   void setTaskPosRelMode(void);
   void setGetPointsMode(void);
   void setNav3DMode(void);
+  void publishPoseMarker(geometry_msgs::Pose pose);
 
   // Callback methods
   void getRobotStatePoseCallback(const geometry_msgs::PoseConstPtr &msg);
@@ -128,6 +133,7 @@ public:
             std::map<std::string, urdf::JointSharedPtr> robot_joints,
             std::string controller_topic, std::string controller_topic_type, 
             std::string robot_state_topic, std::string robot_state_topic_type, 
+            std::string markers_topic,
             Sensitivity sensitivity, bool is_real, std::string active_modes);
   // Callback methods
   void getSpacenavDataCallback(const sensor_msgs::Joy::ConstPtr &msg);
