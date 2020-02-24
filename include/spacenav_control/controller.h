@@ -81,6 +81,7 @@ private:
 
   // Files
   std::fstream pts_fh; // File handler for space points data file
+  std::string filepath = "/home/rtonet/ROS/tese/src/panda_3dbioprint_debug_tools/data/segmentation_points.dat";
 
   // Publishers/Subscribers
   ros::Publisher joint_position_pub;

@@ -460,6 +460,7 @@ void Controller::savePoints(const sensor_msgs::Joy::ConstPtr &msg)
   option_button_state = msg->buttons[1];
   if (!only_nav_mode && option_button_state != prev_option_button_state && !option_button_state)
   {
+    pts_fh.open(filepath, std::fstream::app);
     if (pts_fh.is_open())
     {
       pts_fh << current_pose.position.x << " " << current_pose.position.y << " " << current_pose.position.z \
@@ -467,6 +468,7 @@ void Controller::savePoints(const sensor_msgs::Joy::ConstPtr &msg)
       ROS_INFO_NAMED(LOG_TAG, "%s: Stored pose: p(%.4f, %.4f, %.4f) o(%.4f, %.4f, %.4f, %.4f).", LOG_TAG, current_pose.position.x, current_pose.position.y, current_pose.position.z, \
       current_pose.orientation.x, current_pose.orientation.y, current_pose.orientation.z, current_pose.orientation.w);
       publishPoseMarker(current_pose);
+      pts_fh.close(); // Close file
     }
     else
     {
@@ -509,11 +511,15 @@ void Controller::setGetPointsMode(void)
   ROS_INFO_NAMED(LOG_TAG, "%s: Set Get Points in Space Mode.", LOG_TAG);
   {
     // Open file to append point data
-    std::string path;
-    path = "/home/rtonet/ROS/tese/src/panda_3dbioprint_debug_tools";
-    pts_fh.open(path + "/data/segmentation_points.dat", std::fstream::out);
+    pts_fh.open(filepath, std::fstream::out);
     pts_fh << "px py pz ox oy oz ow" << "\n";
+    pts_fh.close();
     marker_id = 0;
+    // Delete previous markers
+    visualization_msgs::Marker marker;
+    marker.ns = "panda_3dbioprint_vision_system";
+    marker.action = visualization_msgs::Marker::DELETEALL;
+    marker_pub.publish(marker);
   }
 }
 
@@ -521,7 +527,6 @@ void Controller::setNav3DMode(void)
 {
   mode = Modes::Nav3D;
   ROS_INFO_NAMED(LOG_TAG, "%s: Set Nav3D Mode.", LOG_TAG);
-  pts_fh.close(); // Close file
 }
 
 void Controller::publishPoseMarker(geometry_msgs::Pose pose)
