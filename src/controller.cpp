@@ -24,7 +24,7 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
                       std::map<std::string, urdf::JointSharedPtr> robot_joints, 
                       std::string controller_topic, std::string controller_topic_type,
                       std::string robot_state_topic, std::string robot_state_topic_type,
-                      std::string markers_topic,
+                      std::string markers_topic, std::string markers_text_topic,
                       Sensitivity sensitivity, bool is_robot, std::string active_modes)
 {
   // Define is the controller is simulation or real robot
@@ -73,7 +73,8 @@ Controller::Controller(ros::NodeHandle nh, std::string robot_name,
 
     // Setup the publishers and subscribers to get robot state and to set new robot state
     setupPublishersAndSubscribers(nh, controller_topic, controller_topic_type, 
-                                  robot_state_topic, robot_state_topic_type, markers_topic);
+                                  robot_state_topic, robot_state_topic_type, markers_topic, 
+                                  markers_text_topic);
 
     // Set default values
     switch (sensitivity)
@@ -351,7 +352,8 @@ void Controller::publishNewCartesianPose(const geometry_msgs::Pose pose)
 }
 
 void Controller::setupPublishersAndSubscribers(ros::NodeHandle nh, std::string controller_topic, std::string controller_topic_type, 
-                                    std::string robot_state_topic, std::string robot_state_topic_type, std::string markers_topic)
+                                    std::string robot_state_topic, std::string robot_state_topic_type, std::string markers_topic,
+                                    std::string markers_text_topic)
 {
   // Setup topic advertising to send commands to joints
   if (controller_topic_type.compare("trajectory_msgs::JointTrajectory") == 0)
@@ -401,6 +403,7 @@ void Controller::setupPublishersAndSubscribers(ros::NodeHandle nh, std::string c
 
   // Setup the markers publisher
   marker_pub = nh.advertise<visualization_msgs::Marker>(markers_topic, 10);
+  marker_text_pub = nh.advertise<visualization_msgs::Marker>(markers_text_topic, 10);
 
   if (robot_state_topic_type.compare("geometry_msgs::Pose") == 0)
     robot_state_sub = nh.subscribe(robot_state_topic, 10, &Controller::getRobotStatePoseCallback, this);
@@ -517,9 +520,12 @@ void Controller::setGetPointsMode(void)
     marker_id = 0;
     // Delete previous markers
     visualization_msgs::Marker marker;
+    marker.header.frame_id = "panda_link0";
+    marker.header.stamp = ros::Time();
     marker.ns = "panda_3dbioprint_vision_system";
     marker.action = visualization_msgs::Marker::DELETEALL;
     marker_pub.publish(marker);
+    marker_text_pub.publish(marker);
   }
 }
 
@@ -535,7 +541,7 @@ void Controller::publishPoseMarker(geometry_msgs::Pose pose)
   marker.header.frame_id = "panda_link0";
   marker.header.stamp = ros::Time();
   marker.ns = "panda_3dbioprint_vision_system";
-  marker.id = marker_id;
+  marker.id = marker_id++;
   marker.type = visualization_msgs::Marker::SPHERE;
   marker.action = visualization_msgs::Marker::ADD;
   marker.pose = pose;
@@ -547,7 +553,26 @@ void Controller::publishPoseMarker(geometry_msgs::Pose pose)
   marker.color.b = 0;
   marker.color.a = 1.0;
   marker_pub.publish(marker);
-  marker_id++;
+
+  visualization_msgs::Marker marker_text;
+  marker_text.header.frame_id = "panda_link0";
+  marker_text.header.stamp = ros::Time();
+  marker_text.ns = "panda_3dbioprint_vision_system";
+  marker_text.id = marker_id++;
+  marker_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+  marker_text.action = visualization_msgs::Marker::ADD;
+  marker_text.pose = pose;
+  marker_text.pose.position.z = pose.position.z + 0.03;
+  marker_text.scale.z = 0.03;
+  marker_text.color.r = 1.0;
+  marker_text.color.g = 1.0;
+  marker_text.color.b = 0;
+  marker_text.color.a = 1.0;
+  std::ostringstream txt;
+  txt.precision(3);
+  txt << "(" << pose.position.x << "," << pose.position.y << "," << pose.position.z << ")";
+  marker_text.text = txt.str();
+  marker_text_pub.publish(marker_text);
 }
 
 void Controller::getRobotStatePoseCallback(const geometry_msgs::PoseConstPtr &msg)

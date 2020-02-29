@@ -46,5 +46,8 @@
 
     <!-- This param defines the topic published by space mouse when selecting poses -->
     <param name="markers_topic" type="str" value="/panda_3dbioprint_vision_system/wound_segmentation_markers" />
+
+    <!-- This param defines the topic published by space mouse when selecting poses -->
+    <param name="markers_text_topic" type="str" value="/panda_3dbioprint_vision_system/wound_segmentation_markers_text" />
   </node>
 </launch>

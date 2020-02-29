@@ -87,6 +87,7 @@ private:
   ros::Publisher joint_position_pub;
   ros::Publisher cartesian_pose_pub;
   ros::Publisher marker_pub;
+  ros::Publisher marker_text_pub;
   ros::Subscriber robot_state_sub;
   trajectory_msgs::JointTrajectory joint_msg;
   trajectory_msgs::JointTrajectoryPoint point;
@@ -114,7 +115,7 @@ private:
   void publishNewCartesianPose(const geometry_msgs::Pose pose);
   void setupPublishersAndSubscribers(ros::NodeHandle nh, std::string controller_topic, std::string controller_topic_type, 
                                     std::string robot_state_topic, std::string robot_state_topic_type, 
-                                    std::string markers_topic);
+                                    std::string markers_topic, std::string markers_text_topic);
   void savePoints(const sensor_msgs::Joy::ConstPtr &msg);
   bool checkIfModeIsActive(char mode);
   void setJointPosRelMode(void);
@@ -134,7 +135,7 @@ public:
             std::map<std::string, urdf::JointSharedPtr> robot_joints,
             std::string controller_topic, std::string controller_topic_type, 
             std::string robot_state_topic, std::string robot_state_topic_type, 
-            std::string markers_topic,
+            std::string markers_topic, std::string markers_text_topic,
             Sensitivity sensitivity, bool is_real, std::string active_modes);
   // Callback methods
   void getSpacenavDataCallback(const sensor_msgs::Joy::ConstPtr &msg);
